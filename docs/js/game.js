@@ -18,8 +18,8 @@ const MAX_SIDE = 30;
 const COLOURS = 10;
 const LIMIT_MS = 300000;
 const MAX_ATTEMPTS = 3;
-// Shares the model chosen on the MNIST-PRO page; free unless changed there.
-const DEFAULT_MODEL = "google/gemma-4-31b-it:free";
+// Shares whichever model was chosen on the MNIST-PRO page.
+const DEFAULT_MODEL = "google/gemini-3.8-flash";
 const MODEL_STORE = "arc-race-model";
 const KEY_STORE = "arc-race-openrouter-key";
 

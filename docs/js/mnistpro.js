@@ -18,10 +18,10 @@ const DIRECTIONS = ["up", "down", "left", "right"];
 const MASK = 128;              // rendering.MASK_RGB
 const BORDER = "#00E5FF";      // rendering.BORDER_HEX
 const BORDER_WIDTH = 2;
-// Free by default, so a visitor can play without spending anything. Every model
-// offered accepts image input, which this game requires. The choice is shared
-// with the ARC game through the same stored key.
-const DEFAULT_MODEL = "google/gemma-4-31b-it:free";
+// Every model offered accepts image input, which this game requires. Free
+// options remain in the menu for anyone who would rather not spend anything;
+// one round can take up to 36 calls. Shared with ARC through the same store.
+const DEFAULT_MODEL = "google/gemini-3.8-flash";
 const MODEL_STORE = "arc-race-model";
 const KEY_STORE = "arc-race-openrouter-key";
 const MAX_ATTEMPTS = 3;        // agent.AgentConfig.max_attempts
