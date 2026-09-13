@@ -86,6 +86,8 @@ const state = {
 const REASON = {
   running: "running", answered: "answered",
   stepLimit: "step_limit", invalid: "invalid_action",
+  // Stopping by hand is not running out of steps, and saying so was a lie.
+  stopped: "stopped",
 };
 
 function newLane(ep) {
@@ -110,16 +112,21 @@ function move(lane, direction) {
   lane.visited.push([lane.x, lane.y]);
 }
 
-/** One action. Mirrors env.step, including its step limit and reasons. */
+/** One action. Mirrors env.step, including its step limit and reasons.
+ *
+ * Returns whether the action was actually applied. A finished lane ignores
+ * everything, and a caller that reports a verdict without checking will
+ * announce a result for an action that never happened.
+ */
 function applyAction(lane, action) {
-  if (lane.done) return;
+  if (lane.done) return false;
   lane.steps += 1;
   const kind = action && action.action;
 
   if (kind === "move") {
     if (!DIRECTIONS.includes(action.direction)) {
       lane.done = true; lane.reason = REASON.invalid;
-      return;
+      return true;
     }
     move(lane, action.direction);
   } else if (kind === "answer") {
@@ -127,16 +134,17 @@ function applyAction(lane, action) {
     lane.answer = Number.isNaN(parseInt(action.value, 10)) ? "-1" : value;
     lane.success = lane.answer === state.episode.label;
     lane.done = true; lane.reason = REASON.answered;
-    return;
+    return true;
   } else {
     lane.done = true; lane.reason = REASON.invalid;
-    return;
+    return true;
   }
 
   // wrappers.TimeLimit: truncate once the budget is spent, fabricating nothing.
   if (!lane.done && lane.steps >= state.episode.max_steps) {
     lane.done = true; lane.reason = REASON.stepLimit;
   }
+  return true;
 }
 
 /* ----------------------------- rendering ------------------------------ */
@@ -188,7 +196,8 @@ function seenFraction(lane) {
 
 const LABELS = {
   running: "Playing", answered: "Answered",
-  step_limit: "Out of steps", invalid_action: "Invalid action", idle: "Idle",
+  step_limit: "Out of steps", invalid_action: "Invalid action",
+  stopped: "Stopped", idle: "Idle",
 };
 
 function renderLane(name) {
@@ -326,6 +335,10 @@ function finishRace() {
   fillRow("ai", state.ai, winner === "ai");
   dom.stop.disabled = true;
   renderLane("human");
+  // The AI lane needs repainting too. Stopping a round retires it, and
+  // rendering only the human left its panel showing whatever the last model
+  // turn painted - "Playing" for a lane that had already been stopped.
+  if (state.ai) renderLane("ai");
   addLog("sys", `round over — ${reason}`, "hl");
   dom.scoreboard.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
@@ -408,6 +421,15 @@ async function runAi(key) {
     history.push({ role: "assistant", content: raw });
     dom.ai.thinking.hidden = true;
 
+    // The round can end while a request is in flight - the player presses STOP,
+    // or the lane is retired some other way. Applying the reply then is a no-op
+    // that still printed a verdict, which is how a correct "It's a 0." once
+    // appeared as "Wrong - it answered null".
+    if (state.aiAbort || state.finished || lane.done) {
+      addLog("ai", "reply arrived after the round ended — discarded");
+      break;
+    }
+
     if (parsed === null) {
       applyAction(lane, { action: "invalid" });
       addLog("ai", "could not produce JSON — invalid action", "err");
@@ -416,8 +438,11 @@ async function runAi(key) {
     }
     if (parsed.thought) dom.ai.rule.textContent = `"${String(parsed.thought).slice(0, 240)}"`;
 
-    applyAction(lane, parsed);
-    if (parsed.action === "answer") {
+    if (!applyAction(lane, parsed)) {
+      addLog("ai", "action could not be applied — the round had ended", "err");
+      break;
+    }
+    if (lane.reason === REASON.answered) {
       dom.ai.result.textContent = lane.success
         ? `Correct — ${lane.answer} in ${lane.moves} sensing steps.`
         : `Wrong — it answered ${lane.answer}.`;
@@ -512,11 +537,11 @@ function stopRound() {
   state.aiAbort = true;
   if (state.human && !state.human.done) {
     state.human.done = true;
-    state.human.reason = REASON.stepLimit;
+    state.human.reason = REASON.stopped;
   }
   if (state.ai && !state.ai.done) {
     state.ai.done = true;
-    state.ai.reason = REASON.stepLimit;
+    state.ai.reason = REASON.stopped;
   }
   addLog("sys", "stopped");
   finishRace();
