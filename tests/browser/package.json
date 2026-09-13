@@ -1,0 +1,12 @@
+{
+  "name": "arc-race-browser-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "End-to-end browser tests for the MNIST-PRO and ARC Race pages",
+  "scripts": {
+    "test": "node run.js"
+  },
+  "dependencies": {
+    "puppeteer-core": "^23.11.1"
+  }
+}

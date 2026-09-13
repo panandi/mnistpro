@@ -15,6 +15,10 @@ venv/
 build/
 dist/
 
+# --- Node (browser tests) ---
+node_modules/
+tests/browser/screenshots/
+
 # --- Editors / OS ---
 .vscode/
 .idea/
