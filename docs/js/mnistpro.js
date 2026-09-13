@@ -118,20 +118,44 @@ function move(lane, direction) {
  * everything, and a caller that reports a verdict without checking will
  * announce a result for an action that never happened.
  */
+/** Tolerate case and stray punctuation before judging an action.
+ *
+ * "Right" and "right." are the model doing the task; rejecting them is
+ * brittleness here, not a failure there. A genuinely unrecognised verb still
+ * ends the episode, which is what the benchmark does.
+ */
+function normaliseAction(action) {
+  const word = (v) => String(v === undefined || v === null ? "" : v)
+    .trim().toLowerCase().replace(/[.!,;:]+$/, "");
+  if (!action || typeof action !== "object") return { action: "invalid" };
+  const kind = word(action.action);
+  if (kind === "move") return { action: "move", direction: word(action.direction) };
+  if (kind === "answer") {
+    let value = action.value;
+    if (typeof value === "string") {
+      const digits = value.match(/-?\d+/);        // "It's a 0" -> 0
+      value = digits ? digits[0] : value;
+    }
+    return { action: "answer", value };
+  }
+  return { action: kind || "invalid" };
+}
+
 function applyAction(lane, action) {
   if (lane.done) return false;
   lane.steps += 1;
-  const kind = action && action.action;
+  const a = normaliseAction(action);
+  const kind = a.action;
 
   if (kind === "move") {
-    if (!DIRECTIONS.includes(action.direction)) {
+    if (!DIRECTIONS.includes(a.direction)) {
       lane.done = true; lane.reason = REASON.invalid;
       return true;
     }
-    move(lane, action.direction);
+    move(lane, a.direction);
   } else if (kind === "answer") {
-    const value = String(parseInt(action.value, 10));
-    lane.answer = Number.isNaN(parseInt(action.value, 10)) ? "-1" : value;
+    const value = String(parseInt(a.value, 10));
+    lane.answer = Number.isNaN(parseInt(a.value, 10)) ? "-1" : value;
     lane.success = lane.answer === state.episode.label;
     lane.done = true; lane.reason = REASON.answered;
     return true;
@@ -356,11 +380,45 @@ function observationPng(lane) {
   return off.toDataURL("image/png");
 }
 
-/** agent.extract_json — greedy, first brace to last. */
+/** agent.extract_json, with its documented weakness repaired.
+ *
+ * Upstream notes of its own pattern: "The pattern is greedy, so a response
+ * containing a JSON example followed by an answer would match across both and
+ * fail." Keep the greedy span as one candidate, but also strip code fences and
+ * collect every balanced {...} object, preferring the last one that names an
+ * action. A model that restates the example before answering then still gets
+ * its answer read.
+ */
 function extractJson(raw) {
   if (!raw) return null;
-  const m = String(raw).match(/\{[\s\S]*\}/);
-  try { return JSON.parse(m ? m[0] : raw); } catch (_) { return null; }
+  const text = String(raw).replace(/```[a-zA-Z]*/g, "").replace(/```/g, "");
+
+  const candidates = [];
+  const greedy = text.match(/\{[\s\S]*\}/);
+  if (greedy) candidates.push(greedy[0]);
+
+  let depth = 0;
+  let start = -1;
+  for (let i = 0; i < text.length; i += 1) {
+    const c = text[i];
+    if (c === "{") {
+      if (depth === 0) start = i;
+      depth += 1;
+    } else if (c === "}") {
+      depth -= 1;
+      if (depth === 0 && start >= 0) { candidates.push(text.slice(start, i + 1)); start = -1; }
+    }
+  }
+
+  let best = null;
+  for (const candidate of candidates) {
+    let parsed;
+    try { parsed = JSON.parse(candidate); } catch (_) { continue; }
+    if (!parsed || typeof parsed !== "object") continue;
+    if (parsed.action) best = parsed;        // later action objects win
+    else if (best === null) best = parsed;
+  }
+  return best;
 }
 
 async function callModel(key, history) {
@@ -432,7 +490,12 @@ async function runAi(key) {
 
     if (parsed === null) {
       applyAction(lane, { action: "invalid" });
-      addLog("ai", "could not produce JSON — invalid action", "err");
+      // Show what actually came back. "Could not produce JSON" with no reply
+      // attached makes this impossible to diagnose from the screen.
+      const snippet = String(raw).replace(/\s+/g, " ").trim().slice(0, 200);
+      dom.ai.error.hidden = false;
+      dom.ai.error.textContent = `No usable action in the reply: ${snippet || "(empty reply)"}`;
+      addLog("ai", `unparseable reply — ${snippet || "(empty reply)"}`, "err");
       renderLane("ai");
       break;
     }
@@ -449,6 +512,13 @@ async function runAi(key) {
       dom.ai.result.className = `result ${lane.success ? "ok" : "bad"}`;
       addLog("ai", `answer ${lane.answer} — ${lane.success ? "CORRECT" : "wrong"}`,
         lane.success ? "hl" : "err");
+    } else if (lane.reason === REASON.invalid) {
+      // Parsed fine but the action was not recognised. Say which, rather than
+      // leaving "Invalid action" on screen with no explanation.
+      const shown = JSON.stringify(parsed).slice(0, 200);
+      dom.ai.error.hidden = false;
+      dom.ai.error.textContent = `Unrecognised action: ${shown}`;
+      addLog("ai", `unrecognised action — ${shown}`, "err");
     } else if (parsed.action === "move") {
       addLog("ai", `move ${parsed.direction} → (${lane.x}, ${lane.y})`);
     }
