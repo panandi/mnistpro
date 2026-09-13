@@ -830,6 +830,11 @@ dd.frozen { color: var(--ai); }
 }
 .keyrow .hint { flex-basis: 100%; margin: 0; font-size: 11.5px; color: var(--text-faint); }
 
+/* An explicit `display` beats the browser's built-in [hidden] rule, so any
+   component with one stayed on screen while reporting hidden === true. That had
+   already been patched per-component four times; this settles it everywhere. */
+[hidden] { display: none !important; }
+
 .r-attempts { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 
 .howto {
