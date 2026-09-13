@@ -268,7 +268,7 @@ would not see the first worker's races. Put the key in the platform's
 ### The GitHub Pages build
 
 `docs/` is a self-contained build that plays with no server at all, published
-at <https://panandi.github.io/ARC-AGI-Game/> (Settings > Pages > branch `main`,
+at <https://panandi.github.io/mnistpro/> (Settings > Pages > branch `main`,
 folder `/docs`). It exists precisely because Pages serves files and cannot run
 Python — so it never carries a key of yours.
 
@@ -294,8 +294,9 @@ The third option is the full experience: deploy the backend as above, set
 
 ## MNIST-PRO
 
-A second game at `docs/mnistpro.html`, and a much gentler one to learn: there is
-no rule to infer, because everybody already knows what a digit looks like.
+The front page of the site (`docs/index.html`), and a much gentler game to learn
+than ARC: there is no rule to infer, because everybody already knows what a
+digit looks like. ARC Race lives at `docs/arc.html`.
 
 A handwritten digit fills a 224×224 canvas, but only a 64×64 window is ever
 visible — everything else is masked grey. The window moves up, down, left or

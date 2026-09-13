@@ -3,23 +3,22 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>ARC Race — Human vs AI</title>
-<meta name="description" content="Race an AI to solve the same ARC-AGI-1 puzzle. Five minutes, three attempts each." />
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23121316'/%3E%3Crect x='2' y='2' width='5' height='5' fill='%230074D9'/%3E%3Crect x='9' y='9' width='5' height='5' fill='%232ECC40'/%3E%3C/svg%3E" />
+<title>MNIST-PRO Race</title>
+<meta name="description" content="A digit hidden behind a moving window. Identify it in the fewest sensing steps, and race a vision model that usually can't." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23808080'/%3E%3Crect x='2' y='2' width='7' height='7' fill='%23fff' stroke='%2300E5FF'/%3E%3C/svg%3E" />
 <link rel="stylesheet" href="./css/styles.css" />
 </head>
 <body>
-<a class="skip" href="#editor-grid">Skip to the answer grid</a>
+<a class="skip" href="#board-human">Skip to the canvas</a>
 
 <header class="masthead">
   <div class="brand">
-    <h1>ARC-AGI-1</h1>
-    <p class="subtitle">HUMAN <span class="vs">vs</span> AI</p>
+    <h1>MNIST-PRO</h1>
+    <p class="subtitle">FEWEST <span class="vs">steps</span> WINS</p>
   </div>
   <div class="brand-meta topnav">
-    <a href="./guide.html">How to play</a>
-    <a href="./mnistpro.html">MNIST-PRO</a>
-    <a href="https://github.com/panandi/ARC-AGI-Game">Source</a>
+    <a href="./arc.html">ARC Race</a>
+    <a href="https://github.com/declare-lab/MNIST-PRO">Benchmark</a>
     <span class="pill" id="mode-pill">…</span>
   </div>
 </header>
@@ -27,51 +26,70 @@
 <section class="howto" aria-label="How to play">
   <h2>How to play</h2>
   <ol class="steps">
-    <li><strong>Read the examples.</strong> Each one shows a grid before and after.
-      The <em>same</em> hidden rule was applied to every one of them.</li>
-    <li><strong>Name the rule.</strong> On Easy it is always one plain step —
-      something like "rotate it" or "swap the colours".</li>
-    <li><strong>Build the answer.</strong> The grid already opens at the size the
-      answer needs — the toolbar tells you what that is. Pick a colour, then click
-      or drag to paint. <em>Copy input</em> fills it from the test grid, handy when
-      the answer is the same shape.</li>
-    <li><strong>Submit.</strong> Three attempts and five minutes each. Whoever gets
-      it right in the least time wins.</li>
+    <li><strong>A handwritten digit fills the canvas</strong>, but you only ever see
+      through one small window. Everything else is grey. You start on a stroke, so
+      there's always something in view.</li>
+    <li><strong>Move the window</strong> with the arrow keys or the pad — up, down,
+      left, right. Each move is one sensing step, and the window travels half its
+      own width, so views overlap.</li>
+    <li><strong>You see one window at a time.</strong> The rest is memory. That's
+      the whole point of the benchmark — turn on <em>Keep a trail</em> if you'd
+      rather play the easier lookback version.</li>
+    <li><strong>Name the digit once.</strong> You get <em>one</em> answer: right
+      wins the round, wrong ends it. Fewest sensing steps wins; correctness comes
+      first, so a lucky one-step guess doesn't beat a careful correct one.</li>
   </ol>
   <p class="howto-foot">
-    The digits 0–9 are just colour names, and 0 is the background. Your answer has
-    to match exactly — every cell, and the right size.
-    <a href="./guide.html">Full guide →</a>
+    36 steps available, which is exactly the number of distinct window positions.
+    Published models score 6.5–61% here while scoring 92–98% on the same digits
+    shown whole, so you are the favourite.
+    <a href="./arc.html">Prefer puzzles? Try ARC Race →</a>
   </p>
 </section>
 
 <section class="controls" aria-label="Race controls">
   <div class="field">
-    <label for="tier-select">Difficulty</label>
-    <select id="tier-select">
-      <option value="easy">Easy — one simple rule</option>
-      <option value="all">Everything — all 386 puzzles</option>
-    </select>
+    <label for="episode-select">Episode</label>
+    <select id="episode-select"><option value="">Loading…</option></select>
   </div>
 
   <div class="field">
-    <label for="task-select">Puzzle</label>
-    <select id="task-select"><option value="">Loading…</option></select>
+    <label for="view-select">Memory</label>
+    <select id="view-select">
+      <option value="single">One window — as published</option>
+      <option value="trail">Keep a trail — easier</option>
+    </select>
   </div>
 
   <div class="field">
     <label for="opponent-select">Opponent</label>
     <select id="opponent-select">
-      <option value="solo">Solo — race the clock</option>
+      <option value="solo">Solo</option>
       <option value="key">AI — using my OpenRouter key</option>
-      <option value="server" id="opt-server" hidden>AI — hosted server</option>
+    </select>
+  </div>
+
+  <div class="field" id="model-field" hidden>
+    <label for="model-select">Model</label>
+    <select id="model-select">
+      <optgroup label="Free — nothing charged to your key">
+        <option value="google/gemma-4-31b-it:free" selected>Gemma 4 31B — free</option>
+        <option value="google/gemma-4-26b-a4b-it:free">Gemma 4 26B A4B — free</option>
+        <option value="inclusionai/ling-3.0-flash-vl:free">Ling 3.0 Flash VL — free</option>
+        <option value="thinkingmachines/inkling:free">Inkling — free</option>
+        <option value="openrouter/free">Free Models Router</option>
+      </optgroup>
+      <optgroup label="Paid — charged to your key">
+        <option value="google/gemini-3.8-flash">Gemini 3.8 Flash</option>
+        <option value="google/gemini-2.5-flash">Gemini 2.5 Flash</option>
+      </optgroup>
     </select>
   </div>
 
   <div class="field field-actions">
-    <button id="btn-start" class="primary" type="button">START RACE</button>
+    <button id="btn-start" class="primary" type="button">START ROUND</button>
+    <button id="btn-random" type="button">RANDOM</button>
     <button id="btn-stop" class="danger" type="button" disabled>STOP</button>
-    <button id="btn-new" type="button">NEW RACE</button>
   </div>
 
   <div class="keyrow" id="keyrow" hidden>
@@ -80,112 +98,82 @@
     <button type="button" id="btn-save-key">Save key</button>
     <button type="button" id="btn-forget-key">Forget</button>
     <p class="hint">
-      Stored only in this browser and sent only to openrouter.ai. Get one at
-      <a href="https://openrouter.ai/keys">openrouter.ai/keys</a>. A race costs well under a cent.
+      Stored only in this browser and sent only to openrouter.ai. Get a key at
+      <a href="https://openrouter.ai/keys">openrouter.ai/keys</a>. Every model
+      listed accepts images, which this game requires. Free models are rate
+      limited, and a round can take up to 36 calls, so a long round may stall —
+      switch to a paid model if that happens.
     </p>
   </div>
 </section>
 
 <p class="banner" id="banner" hidden></p>
 
-<section class="raceclock" id="raceclock" aria-label="Race clock">
-  <div class="clock-main">
-    <span class="clock-label">TIME REMAINING</span>
-    <span class="clock-value" id="countdown" role="timer" aria-live="off">05:00</span>
+<section class="scorebar" aria-label="Sensing steps">
+  <div class="score-cell human">
+    <span class="score-label">YOUR STEPS</span>
+    <span class="score-value" id="human-steps">0</span>
   </div>
-  <div class="clock-bar" aria-hidden="true"><span id="clock-fill"></span></div>
-  <div class="clock-goal">
-    <span class="clock-label">RULES</span>
-    <span class="clock-goal-value" id="attempts-display">3 attempts each</span>
+  <div class="score-cell mid">
+    <span class="score-label">STEPS LEFT</span>
+    <span class="score-value dim" id="steps-left">36</span>
   </div>
-</section>
-
-<section class="task-panel" id="task-panel" aria-label="The puzzle">
-  <div class="task-head">
-    <h2>The puzzle <span class="task-id" id="task-id-label"></span></h2>
-    <p class="task-hint">Each example turns an input into an output by the same hidden rule.
-      Work out the rule, then build the output for the test input.</p>
-    <div class="hint-box">
-      <button type="button" id="btn-hint" class="hint-btn" hidden>Stuck? Show the hint</button>
-      <p class="hint-text" id="hint-text" hidden></p>
-    </div>
+  <div class="score-cell ai">
+    <span class="score-label">AI STEPS</span>
+    <span class="score-value" id="ai-steps">—</span>
   </div>
-  <div class="task-body">
-    <div class="examples" id="examples"></div>
-    <div class="test-block">
-      <span class="block-label">Test input</span>
-      <div id="test-input"></div>
-    </div>
-  </div>
-  <div class="task-veil" id="task-veil"><span>Press START RACE to reveal the puzzle</span></div>
 </section>
 
 <main class="arena">
-  <section class="panel" id="human-panel" aria-label="Human lane">
+  <section class="panel" aria-label="Your canvas">
     <div class="panel-head">
       <h2>HUMAN</h2>
       <span class="state-chip" id="human-chip">IDLE</span>
     </div>
-
-    <div class="toolbar" aria-label="Answer grid tools">
-      <label class="size">Size
-        <input id="out-rows" type="number" min="1" max="30" value="3" aria-label="Rows" />
-        <span aria-hidden="true">×</span>
-        <input id="out-cols" type="number" min="1" max="30" value="3" aria-label="Columns" />
-      </label>
-      <button type="button" id="btn-resize">Resize</button>
-      <button type="button" id="btn-copy">Copy input</button>
-      <button type="button" id="btn-clear">Clear</button>
-      <span class="tool-group" role="group" aria-label="Tool">
-        <button type="button" id="tool-paint" class="tool" aria-pressed="true">Paint <kbd>P</kbd></button>
-        <button type="button" id="tool-fill" class="tool" aria-pressed="false">Fill <kbd>F</kbd></button>
-      </span>
-      <span class="answer-size" id="answer-size"></span>
+    <div class="canvas-wrap">
+      <canvas class="board" id="board-human" width="224" height="224"
+              aria-label="The masked canvas"></canvas>
+      <div class="canvas-veil" id="human-veil"><span>Press START ROUND</span></div>
     </div>
 
-    <div class="palette" id="palette" role="group" aria-label="Colour — keys 0 to 9"></div>
-
-    <div class="editor-wrap">
-      <div id="editor-grid" aria-label="Your answer grid"></div>
+    <div class="dpad" role="group" aria-label="Move the window">
+      <button type="button" data-dir="up" id="dp-up">↑</button>
+      <button type="button" data-dir="left" id="dp-left">←</button>
+      <button type="button" data-dir="down" id="dp-down">↓</button>
+      <button type="button" data-dir="right" id="dp-right">→</button>
     </div>
 
-    <div class="submit-row">
-      <button type="button" id="btn-submit" class="primary" disabled>SUBMIT ANSWER</button>
-      <button type="button" id="btn-giveup" disabled>GIVE UP</button>
-      <p class="result" id="human-result" aria-live="polite"></p>
+    <div class="guessrow">
+      <span class="guess-label">Answer once</span>
+      <div class="guess-buttons" id="guess-buttons"></div>
     </div>
+    <p class="result" id="human-result" aria-live="polite"></p>
 
     <dl class="stats">
-      <div><dt>Attempts</dt><dd id="human-attempts">0 / 3</dd></div>
-      <div><dt>Elapsed</dt><dd id="human-elapsed">00:00</dd></div>
+      <div><dt>Window</dt><dd id="human-window">—</dd></div>
+      <div><dt>Seen</dt><dd id="human-seen">0%</dd></div>
       <div><dt>State</dt><dd id="human-state">Idle</dd></div>
     </dl>
-    <ol class="history" id="human-history" aria-label="Your attempts"></ol>
   </section>
 
-  <section class="panel" id="ai-panel" aria-label="AI lane">
+  <section class="panel" aria-label="The model's canvas">
     <div class="panel-head">
       <h2>AI</h2>
       <span class="state-chip" id="ai-chip">IDLE</span>
     </div>
-
-    <div class="ai-work" aria-live="polite">
-      <div class="ai-work-head">
-        <span class="block-label">Latest answer</span>
-        <span class="ai-verdict" id="ai-verdict"></span>
-      </div>
-      <div id="ai-grid"></div>
-      <p class="ai-hidden" id="ai-hidden">No attempt yet.</p>
-      <p class="ai-thinking" id="ai-thinking" hidden>Thinking…</p>
+    <div class="canvas-wrap">
+      <canvas class="board" id="board-ai" width="224" height="224"
+              aria-label="What the model can see"></canvas>
+      <div class="canvas-veil" id="ai-veil"><span>Not playing</span></div>
     </div>
-    <div class="ai-gallery" id="ai-gallery" aria-label="Every AI attempt" hidden></div>
+    <p class="ai-thinking" id="ai-thinking" hidden>Thinking…</p>
+    <p class="result" id="ai-result" aria-live="polite"></p>
 
     <dl class="stats">
-      <div><dt>Attempts</dt><dd id="ai-attempts">0 / 3</dd></div>
-      <div><dt>Elapsed</dt><dd id="ai-elapsed">00:00</dd></div>
+      <div><dt>Window</dt><dd id="ai-window">—</dd></div>
+      <div><dt>Seen</dt><dd id="ai-seen">0%</dd></div>
       <div><dt>State</dt><dd id="ai-state">Idle</dd></div>
     </dl>
-    <ol class="history" id="ai-history" aria-label="AI attempts"></ol>
 
     <div class="agent">
       <div class="agent-row">
@@ -193,7 +181,7 @@
         <span class="agent-value" id="ai-model">—</span>
       </div>
       <div class="agent-note">
-        <span class="agent-label">Rule it inferred</span>
+        <span class="agent-label">Its thought</span>
         <blockquote id="ai-rule">—</blockquote>
       </div>
       <p class="agent-error" id="ai-error" hidden></p>
@@ -204,42 +192,48 @@
 <section class="scoreboard" id="scoreboard" hidden>
   <h2 id="race-result">—</h2>
   <p class="verdict" id="verdict-reason">—</p>
-  <table class="results" id="results-table">
+  <table class="results">
     <thead>
-      <tr><th>Lane</th><th>Result</th><th>Time</th><th>Attempts</th></tr>
+      <tr><th>Lane</th><th>Answer</th><th>Result</th><th>Sensing steps</th></tr>
     </thead>
     <tbody>
       <tr id="result-human">
         <th scope="row" class="lane-human">HUMAN</th>
-        <td class="r-outcome">—</td><td class="r-time">—</td><td class="r-attempts">—</td>
+        <td class="r-answer">—</td><td class="r-outcome">—</td><td class="r-steps">—</td>
       </tr>
       <tr id="result-ai">
         <th scope="row" class="lane-ai">AI</th>
-        <td class="r-outcome">—</td><td class="r-time">—</td><td class="r-attempts">—</td>
+        <td class="r-answer">—</td><td class="r-outcome">—</td><td class="r-steps">—</td>
       </tr>
     </tbody>
   </table>
-  <p class="efficiency">Fewer attempts: <strong id="efficiency-result">—</strong></p>
   <p class="caveat">
-    Winner is whoever submitted a correct answer in the least time.
+    A correct answer always beats a wrong one. Between two correct answers, fewer
+    sensing steps wins; an equal count is a tie. Time is never counted — the model
+    answers over a network and would lose on latency alone.
   </p>
 </section>
 
-<details class="log-wrap" id="log-wrap" open>
+<details class="log-wrap" open>
   <summary>Event log <span class="log-count" id="log-count">0</span></summary>
   <ol class="log" id="log" aria-live="polite"></ol>
 </details>
 
 <footer class="legend">
   <p id="legend-main">
-    Puzzles are real tasks from the public ARC-AGI-1 training set. Answers are never
-    sent to your browser — only a checksum, so a submission can be graded here
-    without the solution being readable on the page.
+    Canvases are generated by <a href="https://github.com/declare-lab/MNIST-PRO">MNIST-PRO</a>
+    (MIT) — Toh, Majumder, Liu, Chen and Poria, DeCLaRe Lab (NTU) and A*STAR,
+    <a href="https://arxiv.org/abs/2608.31022">arXiv:2608.31022</a>. Digits are the
+    MNIST test set (LeCun, Cortes and Burges), CC BY-SA 3.0.
   </p>
-  <p class="legend-dim" id="legend-note"></p>
+  <p class="legend-dim">
+    Episode numbering follows their sampler at seed 42, so episode 0 here is the
+    episode 0 of the published runs. The canvas lives in your browser, so it is
+    readable in developer tools — it's a friendly race.
+  </p>
 </footer>
 
 <script src="./config.js"></script>
-<script src="./js/game.js"></script>
+<script src="./js/mnistpro.js"></script>
 </body>
 </html>
