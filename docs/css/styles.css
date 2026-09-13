@@ -840,12 +840,35 @@ dd.frozen { color: var(--ai); }
   border-left: 3px solid var(--human);
   border-radius: var(--radius);
 }
-.howto h2 {
-  margin: 0 0 12px;
+/* Collapsed by default: the rules are there when wanted, not in the way of
+   someone who already knows them. <details> gives keyboard and screen-reader
+   behaviour for free, so none of this needs script. */
+.howto > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
   font-size: 12px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--text-dim);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.howto > summary::-webkit-details-marker { display: none; }
+.howto > summary::before {
+  content: "▸";
+  font-size: 11px;
+  line-height: 1;
+  transition: transform 130ms ease;
+}
+.howto[open] > summary::before { transform: rotate(90deg); }
+.howto > summary:hover { color: var(--human); }
+.howto[open] > summary { margin-bottom: 12px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .howto > summary::before { transition: none; }
 }
 .howto .steps {
   display: grid;
