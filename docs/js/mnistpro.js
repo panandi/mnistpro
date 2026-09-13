@@ -25,6 +25,12 @@ const DEFAULT_MODEL = "google/gemini-3.8-flash";
 const MODEL_STORE = "arc-race-model";
 const KEY_STORE = "arc-race-openrouter-key";
 const MAX_ATTEMPTS = 3;        // agent.AgentConfig.max_attempts
+// The ARC lane and the backend both allow 6000 tokens and both detect a reply
+// cut off by the budget. This lane was written last with 800 and neither guard,
+// so a rambling thought could run out of room mid-string and never reach its
+// closing brace. Kept below ARC's ceiling because a round here can take 36
+// calls, and cost scales with that rather than with three.
+const MAX_OUTPUT_TOKENS = 2000;
 
 // specs.system_instruction(digits=1), verbatim.
 const SYSTEM_INSTRUCTION =
@@ -421,13 +427,13 @@ function extractJson(raw) {
   return best;
 }
 
-async function callModel(key, history) {
+async function callModel(key, history, budget) {
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
     body: JSON.stringify({
       model: currentModel(),
-      max_tokens: 800,
+      max_tokens: budget || MAX_OUTPUT_TOKENS,
       messages: [{ role: "system", content: SYSTEM_INSTRUCTION }, ...history],
     }),
   });
@@ -440,7 +446,13 @@ async function callModel(key, history) {
     throw new Error(map[response.status] || `provider returned HTTP ${response.status}`);
   }
   const body = await response.json();
-  return ((body.choices || [])[0] || {}).message?.content || "";
+  const choice = (body.choices || [])[0] || {};
+  // A reply cut off by the token budget is not a malformed reply, and the
+  // difference matters: retrying it unchanged truncates in the same place.
+  return {
+    content: (choice.message || {}).content || "",
+    truncated: choice.finish_reason === "length",
+  };
 }
 
 async function runAi(key) {
@@ -460,9 +472,13 @@ async function runAi(key) {
 
     let parsed = null;
     let raw = "";
+    let truncated = false;
     for (let attempt = 0; attempt < MAX_ATTEMPTS && parsed === null; attempt += 1) {
+      let reply;
       try {
-        raw = await callModel(key, history);
+        // Give a truncated reply more room next time. Repeating the identical
+        // request simply runs out of budget at the identical point.
+        reply = await callModel(key, history, MAX_OUTPUT_TOKENS * (truncated ? 2 : 1));
       } catch (err) {
         lane.done = true;
         lane.reason = REASON.invalid;
@@ -474,6 +490,8 @@ async function runAi(key) {
         maybeFinish();
         return;
       }
+      raw = reply.content;
+      truncated = reply.truncated;
       parsed = extractJson(raw);
     }
     history.push({ role: "assistant", content: raw });
@@ -492,10 +510,16 @@ async function runAi(key) {
       applyAction(lane, { action: "invalid" });
       // Show what actually came back. "Could not produce JSON" with no reply
       // attached makes this impossible to diagnose from the screen.
-      const snippet = String(raw).replace(/\s+/g, " ").trim().slice(0, 200);
+      const snippet = String(raw).replace(/\s+/g, " ").trim().slice(0, 400);
+      // Name which failure it was. At 200 characters a truncated reply and a
+      // malformed one looked identical on screen, which is exactly the
+      // ambiguity that made the last report hard to diagnose.
+      const why = truncated
+        ? `the reply hit the ${MAX_OUTPUT_TOKENS * 2}-token budget and stopped before its closing brace`
+        : "no usable action in the reply";
       dom.ai.error.hidden = false;
-      dom.ai.error.textContent = `No usable action in the reply: ${snippet || "(empty reply)"}`;
-      addLog("ai", `unparseable reply — ${snippet || "(empty reply)"}`, "err");
+      dom.ai.error.textContent = `${why}: ${snippet || "(empty reply)"}`;
+      addLog("ai", `${why} — ${snippet || "(empty reply)"}`, "err");
       renderLane("ai");
       break;
     }
